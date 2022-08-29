@@ -16,7 +16,7 @@ fi
 # create virtual network & get subnet id
 # NOTE: need to change $RESOURCE_GROUP to lowercase here, or the vnet could not be found
 VNET_NUM=`az network vnet list --query "[?(name=='$VNET_NAME'&&resourceGroup=='${RESOURCE_GROUP,,}')]" | jq '. | length'`
-if [ $VNET_NUM -eq 0 ]; then
+if [ "$VNET_NUM" -eq 0 ]; then
     log "Creating virtual network..."
     SUBNET_ID=`az network vnet create \
         --resource-group $RESOURCE_GROUP \
@@ -36,7 +36,7 @@ fi
 
 # create an AKS cluster
 CLUSTER_NUM=`az aks list --query "[?(name=='$AKS_CLUSTER_NAME'&&resourceGroup=='$RESOURCE_GROUP')]" | jq '. | length'`
-if [ $CLUSTER_NUM -eq 0 ]; then
+if [ "$CLUSTER_NUM" -eq 0 ]; then
     log "Creating AKS cluster..."
     az aks create \
         --resource-group $RESOURCE_GROUP \
@@ -63,7 +63,7 @@ az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER_NAME
 
 # Prepare a SQL server with a database
 SERVER_NUM=`az sql server list --query "[?(name=='$SQL_SERVER_NAME'&&resourceGroup=='$RESOURCE_GROUP')]" | jq '. | length'`
-if [ $SERVER_NUM -eq 0 ]; then
+if [ "$SERVER_NUM" -eq 0 ]; then
     # create a SQL server
     log "Creating SQL server..."
     az sql server create \
@@ -93,13 +93,16 @@ if [ $SERVER_NUM -eq 0 ]; then
 fi
 
 # install fhir-server
-log "Installing/Upgrading FHIR server"
-helm upgrade --install fhir-server ./fhir-server/samples/kubernetes/helm/fhir-server/ \
-    --create-namespace \
-    --namespace my-fhir-release \
-    --set service.type=LoadBalancer \
-    --set database.dataStore=ExistingSqlServer \
-    --set database.existingSqlServer.serverName="${SQL_SERVER_NAME}.database.windows.net" \
-    --set database.existingSqlServer.databaseName=$SQL_SERVER_DB_NAME \
-    --set database.existingSqlServer.userName=$SQL_SERVER_ADMIN_USER \
-    --set database.existingSqlServer.password=$SQL_SERVER_ADMIN_PASSWD \
+FHIR_SERVER_NUM=`kubectl get all -n my-fhir-release -o json | jq '.items | length'`
+if [ "$FHIR_SERVER_NUM" -eq 0 ]; then
+    log "Installing FHIR server"
+    helm install fhir-server ./fhir-server/samples/kubernetes/helm/fhir-server/ \
+        --create-namespace \
+        --namespace my-fhir-release \
+        --set service.type=LoadBalancer \
+        --set database.dataStore=ExistingSqlServer \
+        --set database.existingSqlServer.serverName="${SQL_SERVER_NAME}.database.windows.net" \
+        --set database.existingSqlServer.databaseName=$SQL_SERVER_DB_NAME \
+        --set database.existingSqlServer.userName=$SQL_SERVER_ADMIN_USER \
+        --set database.existingSqlServer.password=$SQL_SERVER_ADMIN_PASSWD
+fi
