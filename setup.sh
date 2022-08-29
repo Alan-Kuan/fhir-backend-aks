@@ -71,7 +71,8 @@ if [ "$SERVER_NUM" -eq 0 ]; then
         --name $SQL_SERVER_NAME \
         --location $REGION_NAME \
         --admin-password $SQL_SERVER_ADMIN_PASSWD \
-        --admin-user $SQL_SERVER_ADMIN_USER
+        --admin-user $SQL_SERVER_ADMIN_USER \
+        --output none
 
     # create firewall rule for the SQL server
     log "Creating firewall rule..."
