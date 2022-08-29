@@ -1,24 +1,10 @@
 #!/usr/bin/bash -e
 
-REGION_NAME='southeastasia'
-RESOURCE_GROUP='19th-Alan-FHIR_on_AKS'
-
-VNET_NAME='vnet-fhir'
-SUBNET_NAME='subnet-fhir'
-VNET_RANGE='10.123.4.0/24'
-SUBNET_RANGE='10.123.4.0/25'
-
-AKS_CLUSTER_NAME='aks-fhir'
-K8S_VERSION='1.21.9'
-
-SQL_SERVER_NAME='alan0824-fhir'
-SQL_SERVER_DB_NAME='FHIR'
-SQL_SERVER_ADMIN_PASSWD='Zmhpcl9zZXJ2ZXJfYWRtaW4='
-SQL_SERVER_ADMIN_USER='fhir_server_admin'
-
 log() {
     echo "[SETUP] $1"
 }
+
+source env.sh
 
 # create resource group
 RESOURCE_GROUP_EXISTS=`az group exists --resource-group $RESOURCE_GROUP`
@@ -104,11 +90,6 @@ if [ $SERVER_NUM -eq 0 ]; then
         --server $SQL_SERVER_NAME \
         --name $SQL_SERVER_DB_NAME \
         --output none
-fi
-
-# clone the repo of the fhir-server
-if [ ! -d "fhir-server" ]; then
-    git clone https://github.com/microsoft/fhir-server
 fi
 
 # install fhir-server
