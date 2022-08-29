@@ -1,0 +1,3 @@
+[submodule "fhir-server"]
+	path = fhir-server
+	url = https://github.com/microsoft/fhir-server/
