@@ -8,11 +8,13 @@ SUBNET_NAME='subnet-fhir'
 VNET_RANGE='10.123.4.0/24'
 SUBNET_RANGE='10.123.4.0/25'
 
-SP_NAME='sp-fhir'
-
 AKS_CLUSTER_NAME='aks-fhir'
 K8S_VERSION='1.21.9'
-CERT_MANAGER_VERSION='v0.12.0'
+
+SQL_SERVER_NAME='alan0824-fhir'
+SQL_SERVER_DB_NAME='FHIR'
+SQL_SERVER_ADMIN_PASSWD='Zmhpcl9zZXJ2ZXJfYWRtaW4='
+SQL_SERVER_ADMIN_USER='fhir_server_admin'
 
 log() {
     echo "[SETUP] $1"
@@ -73,48 +75,40 @@ fi
 log "Configuring AKS credentials..."
 az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER_NAME
 
-# add repos of cert-manager and Azure service operator
-log "Updating Helm repos..."
-helm repo add jetstack https://charts.jetstack.io
-helm repo add aso https://raw.githubusercontent.com/Azure/azure-service-operator/main/charts
-helm repo update
+# Prepare a SQL server with a database
+SERVER_NUM=`az sql server list --query "[?(name=='$SQL_SERVER_NAME'&&resourceGroup=='$RESOURCE_GROUP')]" | jq '. | length'`
+if [ $SERVER_NUM -eq 0 ]; then
+    # create a SQL server
+    log "Creating SQL server..."
+    az sql server create \
+        --resource-group $RESOURCE_GROUP \
+        --name $SQL_SERVER_NAME \
+        --location $REGION_NAME \
+        --admin-password $SQL_SERVER_ADMIN_PASSWD \
+        --admin-user $SQL_SERVER_ADMIN_USER
 
-# install cert-manager
-log "Installing/Upgrading cert-manager..."
-helm upgrade --install cert-manager jetstack/cert-manager \
-    --create-namespace \
-    --namespace cert-manager \
-    --version $CERT_MANAGER_VERSION \
-    --set installCRDs=true
+    # create firewall rule for the SQL server
+    log "Creating firewall rule..."
+    az sql server firewall-rule create \
+        --resource-group $RESOURCE_GROUP \
+        --server $SQL_SERVER_NAME \
+        --name "${SQL_SERVER_NAME}-firewall" \
+        --start-ip-address 0.0.0.0 \
+        --end-ip-address 0.0.0.0 \
+        --output none
 
-ACCOUNT_DETAILS=`az account show`
-TENANT_ID=`echo $ACCOUNT_DETAILS | jq -r '.tenantId'`
-SUBSCRIPTION_ID=`echo $ACCOUNT_DETAILS | jq -r '.id'`
-
-# create service principal
-log "Creating service principal..."
-SERVICE_PRINCIPAL=`az ad sp create-for-rbac \
-    --name $SP_NAME \
-    --role contributor \
-    --scopes /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP`
-
-CLIENT_ID=`echo $SERVICE_PRINCIPAL | jq -r '.appId'`
-CLIENT_SECRET=`echo $SERVICE_PRINCIPAL | jq -r '.password'`
-
-# install Azure Service Operator
-log "Installing/Upgrading Azure Service Operator..."
-helm upgrade --install aso aso/azure-service-operator \
-    --create-namespace \
-    --namespace azureoperator-system \
-    --set azureSubscriptionID=$SUBSCRIPTION_ID \
-    --set azureTenantID=$TENANT_ID \
-    --set azureClientID=$CLIENT_ID \
-    --set azureClientSecret=$CLIENT_SECRET
+    # create a SQL database
+    log "Creating SQL database..."
+    az sql db create \
+        --resource-group $RESOURCE_GROUP \
+        --server $SQL_SERVER_NAME \
+        --name $SQL_SERVER_DB_NAME \
+        --output none
+fi
 
 # clone the repo of the fhir-server
 if [ ! -d "fhir-server" ]; then
     git clone https://github.com/microsoft/fhir-server
-    # TODO: update fhir-server name
 fi
 
 # install fhir-server
@@ -123,5 +117,8 @@ helm upgrade --install fhir-server ./fhir-server/samples/kubernetes/helm/fhir-se
     --create-namespace \
     --namespace my-fhir-release \
     --set service.type=LoadBalancer \
-    --set database.resourceGroup=$RESOURCE_GROUP \
-    --set database.location=$REGION_NAME \
+    --set database.dataStore=ExistingSqlServer \
+    --set database.existingSqlServer.serverName="${SQL_SERVER_NAME}.database.windows.net" \
+    --set database.existingSqlServer.databaseName=$SQL_SERVER_DB_NAME \
+    --set database.existingSqlServer.userName=$SQL_SERVER_ADMIN_USER \
+    --set database.existingSqlServer.password=$SQL_SERVER_ADMIN_PASSWD \
