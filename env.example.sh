@@ -9,7 +9,7 @@ VNET_RANGE='x.x.x.x/x'
 SUBNET_RANGE='x.x.x.x/x'
 
 AKS_CLUSTER_NAME='aks'
-K8S_VERSION='1.21.9'
+K8S_VERSION='1.22.6'
 
 SQL_SERVER_NAME='sqlserver'
 SQL_SERVER_DB_NAME='db'
