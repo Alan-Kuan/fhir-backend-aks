@@ -4,6 +4,14 @@ log() {
     echo "[SETUP] $1"
 }
 
+if [ ! -f env.sh ]; then
+    log "env.sh was not found. Coping from env.example.sh..."
+    cp env.example.sh env.sh
+    sed -i '1s/.*/# copied from env.example.sh, please fill in your values/' env.sh
+    log "Please fill in your values first."
+    exit 1
+fi
+
 source env.sh
 
 # create resource group
@@ -63,7 +71,7 @@ fi
 # create an AKS cluster
 CLUSTER_NUM=`az aks list --query "[?(name=='$AKS_CLUSTER_NAME'&&resourceGroup=='$RESOURCE_GROUP')]" | jq '. | length'`
 if [ "$CLUSTER_NUM" -eq 0 ]; then
-    log "Creating AKS cluster..."
+    log "Creating an AKS cluster..."
     az aks create \
         --resource-group $RESOURCE_GROUP \
         --name $AKS_CLUSTER_NAME \
@@ -91,7 +99,7 @@ az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER_NAME
 SERVER_NUM=`az sql server list --query "[?(name=='$SQL_SERVER_NAME'&&resourceGroup=='$RESOURCE_GROUP')]" | jq '. | length'`
 if [ "$SERVER_NUM" -eq 0 ]; then
     # create a SQL server
-    log "Creating SQL server..."
+    log "Creating a SQL server..."
     az sql server create \
         --resource-group $RESOURCE_GROUP \
         --name $SQL_SERVER_NAME \
@@ -100,8 +108,8 @@ if [ "$SERVER_NUM" -eq 0 ]; then
         --admin-user $SQL_SERVER_ADMIN_USER \
         --output none
 
-    # create firewall rule for the SQL server
-    log "Creating firewall rule..."
+    # create firewall rules for the SQL server
+    log "Creating firewall rules..."
     az sql server firewall-rule create \
         --resource-group $RESOURCE_GROUP \
         --server $SQL_SERVER_NAME \
@@ -111,7 +119,7 @@ if [ "$SERVER_NUM" -eq 0 ]; then
         --output none
 
     # create a SQL database
-    log "Creating SQL database..."
+    log "Creating a SQL database..."
     az sql db create \
         --resource-group $RESOURCE_GROUP \
         --server $SQL_SERVER_NAME \
@@ -123,7 +131,7 @@ fi
 # install fhir-server
 FHIR_SERVER_NUM=`kubectl get all -n my-fhir-release -o json | jq '.items | length'`
 if [ "$FHIR_SERVER_NUM" -eq 0 ]; then
-    log "Installing FHIR server"
+    log "Installing the FHIR server..."
     helm install fhir-server ./fhir-server/samples/kubernetes/helm/fhir-server/ \
         --create-namespace \
         --namespace my-fhir-release \
