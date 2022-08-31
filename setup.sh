@@ -9,7 +9,7 @@ source env.sh
 # create resource group
 RESOURCE_GROUP_EXISTS=`az group exists --resource-group $RESOURCE_GROUP`
 if [ "$RESOURCE_GROUP_EXISTS" = 'false' ]; then
-    log "Creating resource group..."
+    log "Creating a resource group..."
     az group create --name $RESOURCE_GROUP --location $REGION_NAME --output none
 fi
 
@@ -17,15 +17,41 @@ fi
 # NOTE: need to change $RESOURCE_GROUP to lowercase here, or the vnet could not be found
 VNET_NUM=`az network vnet list --query "[?(name=='$VNET_NAME'&&resourceGroup=='${RESOURCE_GROUP,,}')]" | jq '. | length'`
 if [ "$VNET_NUM" -eq 0 ]; then
-    log "Creating virtual network..."
-    SUBNET_ID=`az network vnet create \
+    log "Creating a virtual network..."
+    az network vnet create \
         --resource-group $RESOURCE_GROUP \
         --location $REGION_NAME \
         --name $VNET_NAME \
         --address-prefixes $VNET_RANGE \
-        --subnet-name $SUBNET_NAME \
-        --subnet-prefixes $SUBNET_RANGE \
-        --query "newVNet.subnets[].id" -o tsv`
+        --output none
+
+    log "Creating a network security group..."
+    az network nsg create \
+        --resource-group $RESOURCE_GROUP \
+        --location $REGION_NAME \
+        --name $NSG_NAME \
+        --output none
+
+    log "Creating a rule for the group..."
+    az network nsg rule create \
+        --resource-group $RESOURCE_GROUP \
+        --nsg-name $NSG_NAME \
+        --name AllowAnyHTTPInbound \
+        --priority 100 \
+        --access Allow \
+        --destination-port-ranges 80 \
+        --direction Inbound \
+        --protocol Tcp \
+        --output none
+
+    log "Creating a subnet in the virtual network..."
+    SUBNET_ID=`az network vnet subnet create \
+        --resource-group $RESOURCE_GROUP \
+        --vnet-name $VNET_NAME \
+        --name $SUBNET_NAME \
+        --address-prefixes $SUBNET_RANGE \
+        --network-security-group $NSG_NAME \
+        --query "id" -o tsv`
 else
     SUBNET_ID=`az network vnet subnet show \
         --resource-group $RESOURCE_GROUP \

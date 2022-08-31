@@ -4,6 +4,7 @@ RESOURCE_GROUP='rg'
 
 VNET_NAME='vnet'
 SUBNET_NAME='subnet'
+NSG_NAME='nsg'
 VNET_RANGE='x.x.x.x/x'
 SUBNET_RANGE='x.x.x.x/x'
 
