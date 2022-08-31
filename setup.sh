@@ -116,6 +116,7 @@ if [ "$SERVER_NUM" -eq 0 ]; then
         --resource-group $RESOURCE_GROUP \
         --server $SQL_SERVER_NAME \
         --name $SQL_SERVER_DB_NAME \
+        --backup-storage-redundancy Geo \
         --output none
 fi
 
