@@ -22,8 +22,7 @@ if [ "$RESOURCE_GROUP_EXISTS" = 'false' ]; then
 fi
 
 # create virtual network & get subnet id
-# NOTE: need to change $RESOURCE_GROUP to lowercase here, or the vnet could not be found
-VNET_NUM=`az network vnet list --query "[?(name=='$VNET_NAME'&&resourceGroup=='${RESOURCE_GROUP,,}')]" | jq '. | length'`
+VNET_NUM=`az network vnet list --query "[?(name=='$VNET_NAME'&&resourceGroup=='${RESOURCE_GROUP}')]" | jq '. | length'`
 if [ "$VNET_NUM" -eq 0 ]; then
     log "Creating a virtual network..."
     az network vnet create \
@@ -128,14 +127,34 @@ if [ "$SERVER_NUM" -eq 0 ]; then
         --output none
 fi
 
+# Update helm repo list
+log "Updating helm repo list..."
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+
+# install NGINX Ingress Controller
+INGRESS_NUM=`kubectl get all -n ingress-basic -o json | jq '.items | length'`
+if [ "$INGRESS_NUM" -eq 0 ]; then
+    log "Installing NGINX Ingress Controller..."
+    helm upgrade --install nginx-ingress ingress-nginx/ingress-nginx \
+        --create-namespace \
+        --namespace ingress-basic \
+        --set controller.replicaCount=2 \
+        --set controller.nodeSelector."kubernetes\.io/os"=linux \
+        --set defaultBackend.nodeSelector."kubernetes\.io/os"=linux
+fi
+
+# create a route
+log "Creating a route to the FHIR server"
+kubectl apply -f fhir-server-ingress.yml
+
 # install fhir-server
 FHIR_SERVER_NUM=`kubectl get all -n my-fhir-release -o json | jq '.items | length'`
 if [ "$FHIR_SERVER_NUM" -eq 0 ]; then
     log "Installing the FHIR server..."
-    helm install fhir-server ./fhir-server/samples/kubernetes/helm/fhir-server/ \
+    helm upgrade --install fhir-server ./fhir-server/samples/kubernetes/helm/fhir-server/ \
         --create-namespace \
         --namespace my-fhir-release \
-        --set service.type=LoadBalancer \
         --set database.dataStore=ExistingSqlServer \
         --set database.existingSqlServer.serverName="${SQL_SERVER_NAME}.database.windows.net" \
         --set database.existingSqlServer.databaseName=$SQL_SERVER_DB_NAME \
