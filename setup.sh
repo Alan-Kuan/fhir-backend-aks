@@ -132,22 +132,6 @@ log "Updating helm repo list..."
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo update
 
-# install NGINX Ingress Controller
-INGRESS_NUM=`kubectl get all -n ingress-basic -o json | jq '.items | length'`
-if [ "$INGRESS_NUM" -eq 0 ]; then
-    log "Installing NGINX Ingress Controller..."
-    helm upgrade --install nginx-ingress ingress-nginx/ingress-nginx \
-        --create-namespace \
-        --namespace ingress-basic \
-        --set controller.replicaCount=2 \
-        --set controller.nodeSelector."kubernetes\.io/os"=linux \
-        --set defaultBackend.nodeSelector."kubernetes\.io/os"=linux
-fi
-
-# create a route
-log "Creating a route to the FHIR server"
-kubectl apply -f fhir-server-ingress.yml
-
 # install fhir-server
 FHIR_SERVER_NUM=`kubectl get all -n my-fhir-release -o json | jq '.items | length'`
 if [ "$FHIR_SERVER_NUM" -eq 0 ]; then
@@ -160,4 +144,27 @@ if [ "$FHIR_SERVER_NUM" -eq 0 ]; then
         --set database.existingSqlServer.databaseName=$SQL_SERVER_DB_NAME \
         --set database.existingSqlServer.userName=$SQL_SERVER_ADMIN_USER \
         --set database.existingSqlServer.password=$SQL_SERVER_ADMIN_PASSWD
+fi
+
+# install NGINX Ingress Controller
+INGRESS_CONTROLLER_NUM=`kubectl get all -n ingress-basic -o json | jq '.items | length'`
+if [ "$INGRESS_CONTROLLER_NUM" -eq 0 ]; then
+    log "Installing NGINX Ingress Controller..."
+    helm upgrade --install nginx-ingress ingress-nginx/ingress-nginx \
+        --create-namespace \
+        --namespace ingress-basic \
+        --set controller.replicaCount=2 \
+        --set controller.nodeSelector."kubernetes\.io/os"=linux \
+        --set defaultBackend.nodeSelector."kubernetes\.io/os"=linux \
+        --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-dns-label-name"=$API_DNS_NAME
+fi
+
+# create certificates
+source create_cert.sh
+
+# create a ingress route
+INGRESS_NUM=`kubectl get ingress -n my-fhir-release -o json | jq '.items | length'`
+if [ "$INGRESS_NUM" -eq 0 ]; then
+    log "Creating a route to the FHIR server"
+    envsubst < ingress-fhir.yml | kubectl apply -f -
 fi

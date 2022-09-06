@@ -1,0 +1,39 @@
+# NOTE: this file contains environment variables and should be replaced
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ${INGRESS_NAME}
+  namespace: my-fhir-release
+  annotations:
+    # CORS
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "*"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "*"
+    nginx.ingress.kubernetes.io/cors-max-age: "1440"
+
+    # Enable client certificate authentication
+    nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
+    # Create the secret containing the trusted ca certificates
+    nginx.ingress.kubernetes.io/auth-tls-secret: "default/ca-secret"
+    # Specify the verification depth in the client certificates chain
+    nginx.ingress.kubernetes.io/auth-tls-verify-depth: "1"
+    # Specify if certificates are passed to upstream server
+    nginx.ingress.kubernetes.io/auth-tls-pass-certificate-to-upstream: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - ${API_DNS_LABEL}.${REGION_NAME}.cloudapp.azure.com
+    secretName: tls-secret
+  rules:
+  - host: ${API_DNS_LABEL}.${REGION_NAME}.cloudapp.azure.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: fhir-server
+            port:
+              number: 80
