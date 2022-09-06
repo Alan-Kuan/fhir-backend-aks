@@ -39,7 +39,7 @@ if [ "$VNET_NUM" -eq 0 ]; then
         --name $NSG_NAME \
         --output none
 
-    log "Creating a rule for the group..."
+    log "Creating HTTP/HTTPS rules for the group..."
     az network nsg rule create \
         --resource-group $RESOURCE_GROUP \
         --nsg-name $NSG_NAME \
@@ -48,7 +48,17 @@ if [ "$VNET_NUM" -eq 0 ]; then
         --access Allow \
         --destination-port-ranges 80 \
         --direction Inbound \
-        --protocol Tcp \
+        --protocol TCP \
+        --output none
+    az network nsg rule create \
+        --resource-group $RESOURCE_GROUP \
+        --nsg-name $NSG_NAME \
+        --name AllowAnyHTTPSInbound \
+        --priority 100 \
+        --access Allow \
+        --destination-port-ranges 443 \
+        --direction Inbound \
+        --protocol TCP \
         --output none
 
     log "Creating a subnet in the virtual network..."
