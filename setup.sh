@@ -118,6 +118,8 @@ if [ "$SERVER_NUM" -eq 0 ]; then
         --output none
 
     # create firewall rules for the SQL server
+    # NOTE: As described in the doc, if start-ip-address and end-ip-address are 0.0.0.0,
+    #       it allows all Azure-internal IP address. 
     log "Creating firewall rules..."
     az sql server firewall-rule create \
         --resource-group $RESOURCE_GROUP \
