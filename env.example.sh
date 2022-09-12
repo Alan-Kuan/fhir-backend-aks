@@ -10,6 +10,7 @@ export SUBNET_RANGE='10.123.4.0/25'
 
 export AKS_CLUSTER_NAME='aks-fhir'
 export K8S_VERSION='1.22.6'
+export CERT_MANAGER_VERSION='v1.9.1'
 export INGRESS_NAME='ingress-fhir'
 export API_DNS_LABEL='fhir-demo'
 

@@ -1,10 +1,12 @@
-# NOTE: this file contains environment variables and should be replaced
+# NOTE: this file contains environment variables and should be replaced before being applied
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: ${INGRESS_NAME}
   namespace: my-fhir-release
   annotations:
+    cert-manager.io/issuer: "letsencrypt-prod"
+
     # CORS
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/cors-allow-origin: "*"
@@ -12,14 +14,12 @@ metadata:
     nginx.ingress.kubernetes.io/cors-allow-headers: "*"
     nginx.ingress.kubernetes.io/cors-max-age: "1440"
 
-    # Enable client certificate authentication
-    nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
-    # Create the secret containing the trusted ca certificates
-    nginx.ingress.kubernetes.io/auth-tls-secret: "default/ca-secret"
-    # Specify the verification depth in the client certificates chain
-    nginx.ingress.kubernetes.io/auth-tls-verify-depth: "1"
-    # Specify if certificates are passed to upstream server
-    nginx.ingress.kubernetes.io/auth-tls-pass-certificate-to-upstream: "true"
+    # type of authentication
+    nginx.ingress.kubernetes.io/auth-type: basic
+    # name of the secret that contains the user/password definitions
+    nginx.ingress.kubernetes.io/auth-secret: default/basic-auth
+    # message to display with an appropriate context why the authentication is required
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required'
 spec:
   ingressClassName: nginx
   tls:

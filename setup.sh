@@ -145,11 +145,6 @@ if [ "$SERVER_NUM" -eq 0 ]; then
         --output none
 fi
 
-# Update helm repo list
-log "Updating helm repo list..."
-helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-helm repo update
-
 # install fhir-server
 FHIR_SERVER_NUM=`kubectl get all -n my-fhir-release -o json | jq '.items | length'`
 if [ "$FHIR_SERVER_NUM" -eq 0 ]; then
@@ -164,6 +159,28 @@ if [ "$FHIR_SERVER_NUM" -eq 0 ]; then
         --set database.existingSqlServer.password=$SQL_SERVER_ADMIN_PASSWD
 fi
 
+# Update helm repo list
+log "Updating helm repo list..."
+helm repo add jetstack https://charts.jetstack.io
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+
+# install cert-manager
+CERT_MANAGER_NUM=`kubectl get all -n cert-manager -o json | jq '.items | length'`
+if [ "$CERT_MANAGER_NUM" -eq 0 ]; then
+    helm upgrade --install cert-manager jetstack/cert-manager \
+      --create-namespace \
+      --namespace cert-manager \
+      --version $CERT_MANAGER_VERSION \
+      --set installCRDs=true
+fi
+
+# create an Let's Encrypt Issuer
+if ! kubectl get issuer letsencrypt-prod -n my-fhir-release >/dev/null 2>&1; then
+    log "Creating an Let's Encrypt Issuer..."
+    kubectl apply -f issuer-fhir.yml
+fi
+
 # install NGINX Ingress Controller
 INGRESS_CONTROLLER_NUM=`kubectl get all -n ingress-basic -o json | jq '.items | length'`
 if [ "$INGRESS_CONTROLLER_NUM" -eq 0 ]; then
@@ -174,11 +191,22 @@ if [ "$INGRESS_CONTROLLER_NUM" -eq 0 ]; then
         --set controller.replicaCount=2 \
         --set controller.nodeSelector."kubernetes\.io/os"=linux \
         --set defaultBackend.nodeSelector."kubernetes\.io/os"=linux \
-        --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-dns-label-name"=$API_DNS_NAME
+        --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-dns-label-name"=$API_DNS_LABEL
 fi
 
-# create certificates
-source create_cert.sh
+# create account for basic auth
+if ! kubectl get secret basic-auth >/dev/null 2>&1; then
+    if ! command -v htpasswd >/dev/null; then
+        log "'htpasswd' is a necessary command. You can install 'apache2-utils' on Ubuntu for it."
+        exit 1
+    fi
+
+    log "Creating an account for basic auth..."
+    echo -n "Username: "
+    read -r uname
+    htpasswd -c auth $uname
+    kubectl create secret generic basic-auth --from-file=auth
+fi
 
 # create a ingress route
 INGRESS_NUM=`kubectl get ingress -n my-fhir-release -o json | jq '.items | length'`
