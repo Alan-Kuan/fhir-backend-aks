@@ -117,6 +117,16 @@ if [ "$SERVER_NUM" -eq 0 ]; then
         --admin-user $SQL_SERVER_ADMIN_USER \
         --output none
 
+    # create firewall rules for the SQL server
+    log "Creating firewall rules..."
+    az sql server firewall-rule create \
+        --resource-group $RESOURCE_GROUP \
+        --server $SQL_SERVER_NAME \
+        --name "${SQL_SERVER_NAME}-firewall" \
+        --start-ip-address 0.0.0.0 \
+        --end-ip-address 0.0.0.0 \
+        --output none
+
     # create a SQL database
     log "Creating a SQL database..."
     az sql db create \
