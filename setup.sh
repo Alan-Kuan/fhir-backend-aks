@@ -88,9 +88,7 @@ if [ "$CLUSTER_NUM" -eq 0 ]; then
         --location $REGION_NAME \
         --vm-set-type VirtualMachineScaleSets \
         --load-balancer-sku standard \
-        --enable-cluster-autoscaler \
-        --min-count 3 \
-        --max-count 5 \
+        --node-count 1 \
         --generate-ssh-keys \
         --kubernetes-version $K8S_VERSION \
         --network-plugin azure \
