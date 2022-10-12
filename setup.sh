@@ -133,12 +133,8 @@ if [ "$SERVER_NUM" -eq 0 ]; then
         --resource-group $RESOURCE_GROUP \
         --server $SQL_SERVER_NAME \
         --name $SQL_SERVER_DB_NAME \
-        --edition GeneralPurpose \
-        --family Gen5 \
-        --capacity 1 \
-        --compute-model Serverless \
+        --edition Basic \
         --max-size 1GB \
-        --auto-pause-delay 60 \
         --backup-storage-redundancy Geo \
         --output none
 fi
