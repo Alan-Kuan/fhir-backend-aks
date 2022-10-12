@@ -172,7 +172,7 @@ fi
 # create an Let's Encrypt Issuer
 if ! kubectl get issuer letsencrypt-prod -n my-fhir-release >/dev/null 2>&1; then
     log "Creating an Let's Encrypt Issuer..."
-    kubectl apply -f issuer-fhir.yml
+    envsubst < issuer-fhir.yml | kubectl apply -f -
 fi
 
 # install NGINX Ingress Controller

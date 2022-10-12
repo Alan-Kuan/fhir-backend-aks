@@ -18,3 +18,5 @@ export SQL_SERVER_NAME='sql-server-fhir'
 export SQL_SERVER_DB_NAME='FHIR'
 export SQL_SERVER_ADMIN_PASSWD='sql_server_admin_passwd'
 export SQL_SERVER_ADMIN_USER='sql_server_admin'
+
+export ACME_REG_EMAIL=xxx@ooo.com
