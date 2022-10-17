@@ -101,6 +101,7 @@ fi
 # configure AKS credentials
 log "Configuring AKS credentials..."
 az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER_NAME
+kubelogin convert-kubeconfig -l azurecli
 
 # Prepare a SQL server with a database
 SERVER_NUM=`az sql server list --query "[?(name=='$SQL_SERVER_NAME'&&resourceGroup=='$RESOURCE_GROUP')]" | jq '. | length'`
