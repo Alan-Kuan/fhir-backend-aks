@@ -30,8 +30,7 @@ if [ "$RESOURCE_GROUP_EXISTS" = 'false' ]; then
 fi
 
 # create virtual network & get subnet id
-VNET_NUM=`az network vnet list --query "[?(name=='$VNET_NAME'&&resourceGroup=='${RESOURCE_GROUP}')]" | jq '. | length'`
-if [ "$VNET_NUM" -eq 0 ]; then
+if ! az_resource_exists $RESOURCE_GROUP $VNET_NAME network vnet; then
     log "Creating a virtual network..."
     az network vnet create \
         --resource-group $RESOURCE_GROUP \
@@ -86,8 +85,7 @@ else
 fi
 
 # create an AKS cluster
-CLUSTER_NUM=`az aks list --query "[?(name=='$AKS_CLUSTER_NAME'&&resourceGroup=='$RESOURCE_GROUP')]" | jq '. | length'`
-if [ "$CLUSTER_NUM" -eq 0 ]; then
+if ! az_resource_exists $RESOURCE_GROUP $AKS_CLUSTER_NAME aks; then
     log "Creating an AKS cluster..."
     az aks create \
         --resource-group $RESOURCE_GROUP \
@@ -112,8 +110,7 @@ az aks get-credentials -g $RESOURCE_GROUP -n $AKS_CLUSTER_NAME
 kubelogin convert-kubeconfig -l azurecli
 
 # Prepare a SQL server with a database
-SERVER_NUM=`az sql server list --query "[?(name=='$SQL_SERVER_NAME'&&resourceGroup=='$RESOURCE_GROUP')]" | jq '. | length'`
-if [ "$SERVER_NUM" -eq 0 ]; then
+if az_resource_exists $RESOURCE_GROUP $SQL_SERVER_NAME sql server; then
     # create a SQL server
     log "Creating a SQL server..."
     az sql server create \
@@ -162,7 +159,7 @@ fi
 
 NODE_RESOURCE_GROUP=`kubectl get nodes -o json | jq -r '.items[0].metadata.labels."kubernetes.azure.com/cluster"'`
 # create identity for FHIR server
-if ! az identity show -g $NODE_RESOURCE_GROUP -n $IDENT_NAME >/dev/null 2>&1; then
+if ! az_resource_exists $NODE_RESOURCE_GROUP $IDENT_NAME identity; then
     IDENT=`az identity create -g $NODE_RESOURCE_GROUP -n $IDENT_NAME`
 else
     IDENT=`az identity show -g $NODE_RESOURCE_GROUP -n $IDENT_NAME`
@@ -171,7 +168,7 @@ IDENT_CLIENT_ID=`echo $IDENT | jq -r '.clientId'`
 IDENT_RESOURCE_ID=`echo $IDENT | jq -r '.id'`
 
 # create a storage account and assign it to the identity
-if ! az storage account show -g $NODE_RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME >/dev/null 2>&1; then
+if ! az_resource_exists $NODE_RESOURCE_GROUP $STORAGE_ACCOUNT_NAME storage account; then
     STORAGE_ACCOUNT=`az storage account create -g $NODE_RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME`
     STORAGE_ACCOUNT_ID=`echo $STORAGE_ACCOUNT | jq -r '.id'`
     az role assignment create \
@@ -212,7 +209,7 @@ if ! helm_release_exists cert-manager; then
 fi
 
 # create an Let's Encrypt Issuer
-if ! kubectl get issuer letsencrypt-prod -n my-fhir-release >/dev/null 2>&1; then
+if ! k8s_resource_exists issuer letsencrypt-prod my-fhir-release; then
     log "Creating an Let's Encrypt Issuer..."
     envsubst < issuer-fhir.yml | kubectl apply -f -
 fi
@@ -230,7 +227,7 @@ if ! helm_release_exists nginx-ingress; then
 fi
 
 # create account for basic auth
-if ! kubectl get secret basic-auth >/dev/null 2>&1; then
+if ! k8s_resource_exists secret basic-auth default; then
     log "Creating an account for basic auth..."
     echo -n "Username: "
     read -r uname
@@ -239,7 +236,7 @@ if ! kubectl get secret basic-auth >/dev/null 2>&1; then
 fi
 
 # create a ingress route
-if ! kubectl get ingress ingress-fhir -n my-fhir-release >/dev/null 2>&1; then
+if ! k8s_resource_exists ingress ingress-fhir my-fhir-release; then
     log "Creating a route to the FHIR server"
     envsubst < ingress-fhir.yml | kubectl apply -f -
 fi
