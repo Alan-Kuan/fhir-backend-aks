@@ -211,7 +211,7 @@ fi
 # create an Let's Encrypt Issuer
 if ! k8s_resource_exists issuer letsencrypt-prod my-fhir-release; then
     log "Creating an Let's Encrypt Issuer..."
-    envsubst < issuer-fhir.yml | kubectl apply -f -
+    envsubst < tmpl/issuer-fhir.yml | kubectl apply -f -
 fi
 
 # install NGINX Ingress Controller
@@ -238,5 +238,5 @@ fi
 # create a ingress route
 if ! k8s_resource_exists ingress ingress-fhir my-fhir-release; then
     log "Creating a route to the FHIR server"
-    envsubst < ingress-fhir.yml | kubectl apply -f -
+    envsubst < tmpl/ingress-fhir.yml | kubectl apply -f -
 fi
