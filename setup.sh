@@ -1,8 +1,16 @@
 #!/usr/bin/bash -e
 
-log() {
-    echo "[SETUP] $1"
-}
+source utils.sh
+
+# check whether necessary commands exist
+required_cmds="az helm kubectl kubelogin jq htpasswd"
+for cmd in $required_cmds; do
+    if ! command -v $cmd >/dev/null; then
+        log "'$cmd' is a necessary command."
+        [ $cmd = "htpasswd" ] && log "You can install 'apache2-utils' on Ubuntu for it."
+        exit 1
+    fi
+done
 
 if [ ! -f env.sh ]; then
     log "env.sh was not found. Coping from env.example.sh..."
@@ -100,7 +108,7 @@ fi
 
 # configure AKS credentials
 log "Configuring AKS credentials..."
-az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER_NAME
+az aks get-credentials -g $RESOURCE_GROUP -n $AKS_CLUSTER_NAME
 kubelogin convert-kubeconfig -l azurecli
 
 # Prepare a SQL server with a database
@@ -140,9 +148,44 @@ if [ "$SERVER_NUM" -eq 0 ]; then
         --output none
 fi
 
+# Update helm repo list
+log "Updating helm repo list..."
+helm repo add jetstack https://charts.jetstack.io
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo add aad-pod-identity https://raw.githubusercontent.com/Azure/aad-pod-identity/master/charts
+helm repo update
+
+# install add-pod-identity
+if ! helm_release_exists aad-pod-identity; then
+    helm install aad-pod-identity aad-pod-identity/aad-pod-identity
+fi
+
+NODE_RESOURCE_GROUP=`kubectl get nodes -o json | jq -r '.items[0].metadata.labels."kubernetes.azure.com/cluster"'`
+# create identity for FHIR server
+if ! az identity show -g $NODE_RESOURCE_GROUP -n $IDENT_NAME >/dev/null 2>&1; then
+    IDENT=`az identity create -g $NODE_RESOURCE_GROUP -n $IDENT_NAME`
+else
+    IDENT=`az identity show -g $NODE_RESOURCE_GROUP -n $IDENT_NAME`
+fi
+IDENT_CLIENT_ID=`echo $IDENT | jq -r '.clientId'`
+IDENT_RESOURCE_ID=`echo $IDENT | jq -r '.id'`
+
+# create a storage account and assign it to the identity
+if ! az storage account show -g $NODE_RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME >/dev/null 2>&1; then
+    STORAGE_ACCOUNT=`az storage account create -g $NODE_RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME`
+    STORAGE_ACCOUNT_ID=`echo $STORAGE_ACCOUNT | jq -r '.id'`
+    az role assignment create \
+        --role "Storage Blob Data Contributor" \
+        --assignee $IDENT_CLIENT_ID \
+        --scope $STORAGE_ACCOUNT_ID \
+        --output none
+else
+    STORAGE_ACCOUNT=`az storage account show -g $NODE_RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME`
+fi
+BLOB_STORAGE_URI=`echo $STORAGE_ACCOUNT | jq -r '.primaryEndpoints.blob'`
+
 # install fhir-server
-FHIR_SERVER_NUM=`kubectl get all -n my-fhir-release -o json | jq '.items | length'`
-if [ "$FHIR_SERVER_NUM" -eq 0 ]; then
+if ! helm_release_exists fhir-server; then
     log "Installing the FHIR server..."
     helm upgrade --install fhir-server ./fhir-server/samples/kubernetes/helm/fhir-server/ \
         --create-namespace \
@@ -151,18 +194,16 @@ if [ "$FHIR_SERVER_NUM" -eq 0 ]; then
         --set database.existingSqlServer.serverName="${SQL_SERVER_NAME}.database.windows.net" \
         --set database.existingSqlServer.databaseName=$SQL_SERVER_DB_NAME \
         --set database.existingSqlServer.userName=$SQL_SERVER_ADMIN_USER \
-        --set database.existingSqlServer.password=$SQL_SERVER_ADMIN_PASSWD
+        --set database.existingSqlServer.password=$SQL_SERVER_ADMIN_PASSWD \
+        --set podIdentity.enabled=true \
+        --set podIdentity.identityClientId=$IDENT_CLIENT_ID \
+        --set podIdentity.identityResourceId=$IDENT_RESOURCE_ID \
+        --set export.enabled=true \
+        --set export.blobStorageUri=$BLOB_STORAGE_URI
 fi
 
-# Update helm repo list
-log "Updating helm repo list..."
-helm repo add jetstack https://charts.jetstack.io
-helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-helm repo update
-
 # install cert-manager
-CERT_MANAGER_NUM=`kubectl get all -n cert-manager -o json | jq '.items | length'`
-if [ "$CERT_MANAGER_NUM" -eq 0 ]; then
+if ! helm_release_exists cert-manager; then
     helm upgrade --install cert-manager jetstack/cert-manager \
       --create-namespace \
       --namespace cert-manager \
@@ -177,8 +218,7 @@ if ! kubectl get issuer letsencrypt-prod -n my-fhir-release >/dev/null 2>&1; the
 fi
 
 # install NGINX Ingress Controller
-INGRESS_CONTROLLER_NUM=`kubectl get all -n ingress-basic -o json | jq '.items | length'`
-if [ "$INGRESS_CONTROLLER_NUM" -eq 0 ]; then
+if ! helm_release_exists nginx-ingress; then
     log "Installing NGINX Ingress Controller..."
     helm upgrade --install nginx-ingress ingress-nginx/ingress-nginx \
         --create-namespace \
@@ -191,11 +231,6 @@ fi
 
 # create account for basic auth
 if ! kubectl get secret basic-auth >/dev/null 2>&1; then
-    if ! command -v htpasswd >/dev/null; then
-        log "'htpasswd' is a necessary command. You can install 'apache2-utils' on Ubuntu for it."
-        exit 1
-    fi
-
     log "Creating an account for basic auth..."
     echo -n "Username: "
     read -r uname
@@ -204,8 +239,7 @@ if ! kubectl get secret basic-auth >/dev/null 2>&1; then
 fi
 
 # create a ingress route
-INGRESS_NUM=`kubectl get ingress -n my-fhir-release -o json | jq '.items | length'`
-if [ "$INGRESS_NUM" -eq 0 ]; then
+if ! kubectl get ingress ingress-fhir -n my-fhir-release >/dev/null 2>&1; then
     log "Creating a route to the FHIR server"
     envsubst < ingress-fhir.yml | kubectl apply -f -
 fi

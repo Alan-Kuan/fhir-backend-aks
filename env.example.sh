@@ -19,5 +19,8 @@ export SQL_SERVER_DB_NAME='FHIR'
 export SQL_SERVER_ADMIN_PASSWD='sql_server_admin_passwd'
 export SQL_SERVER_ADMIN_USER='sql_server_admin'
 
+export IDENT_NAME='identity-fhir'
+export STORAGE_ACCOUNT_NAME='fhirstorage'
+
 export ACME_REG_EMAIL=xxx@ooo.com
 export KUBECONFIG=/home/xxx/.kube/config
