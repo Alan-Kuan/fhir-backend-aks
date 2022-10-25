@@ -11,7 +11,7 @@ metadata:
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/cors-allow-origin: "*"
     nginx.ingress.kubernetes.io/cors-allow-methods: "*"
-    nginx.ingress.kubernetes.io/cors-allow-headers: "*"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Origin,X-Requested-With,Content-Type,Authorization,Accept,Prefer"
     nginx.ingress.kubernetes.io/cors-max-age: "1440"
 
     # type of authentication
