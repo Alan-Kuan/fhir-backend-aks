@@ -110,7 +110,7 @@ az aks get-credentials -g $RESOURCE_GROUP -n $AKS_CLUSTER_NAME
 kubelogin convert-kubeconfig -l azurecli
 
 # Prepare a SQL server with a database
-if az_resource_exists $RESOURCE_GROUP $SQL_SERVER_NAME sql server; then
+if ! az_resource_exists $RESOURCE_GROUP $SQL_SERVER_NAME sql server; then
     # create a SQL server
     log "Creating a SQL server..."
     az sql server create \
