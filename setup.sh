@@ -196,7 +196,8 @@ if ! helm_release_exists fhir-server; then
         --set podIdentity.identityClientId=$IDENT_CLIENT_ID \
         --set podIdentity.identityResourceId=$IDENT_RESOURCE_ID \
         --set export.enabled=true \
-        --set export.blobStorageUri=$BLOB_STORAGE_URI
+        --set export.blobStorageUri=$BLOB_STORAGE_URI \
+        --set convertData.enabled=true
 fi
 
 # install cert-manager
