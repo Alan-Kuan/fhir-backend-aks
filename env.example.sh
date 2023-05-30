@@ -2,16 +2,16 @@
 export REGION_NAME='southeastasia'
 export RESOURCE_GROUP='someRG'
 
-export VNET_NAME='vnet-fhir'
-export SUBNET_NAME='subnet-fhir'
-export NSG_NAME='nsg-fhir'
+# export VNET_NAME='vnet-fhir'
+# export SUBNET_NAME='subnet-fhir'
+# export NSG_NAME='nsg-fhir'
 export VNET_RANGE='10.123.4.0/24'
 export SUBNET_RANGE='10.123.4.0/25'
 
 export AKS_CLUSTER_NAME='aks-fhir'
-export K8S_VERSION='1.22.6'
-export CERT_MANAGER_VERSION='v1.9.1'
+export K8S_VERSION='1.25.6'
 export INGRESS_NAME='ingress-fhir'
+export CERT_MANAGER_VERSION='v1.12.0'
 export API_DNS_LABEL='fhir-demo'
 
 export SQL_SERVER_NAME='sql-server-fhir'

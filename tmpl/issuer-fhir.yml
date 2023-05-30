@@ -3,7 +3,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: letsencrypt-prod
-  namespace: my-fhir-release
+  namespace: fhir-ns
 spec:
   acme:
     # The ACME server URL
