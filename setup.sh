@@ -45,7 +45,7 @@ kubelogin convert-kubeconfig -l azurecli
 # update helm repo list
 log "Updating helm repo list..."
 helm repo add jetstack https://charts.jetstack.io
-helm repo add nginx-stable https://helm.nginx.com/stable
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo add aad-pod-identity https://raw.githubusercontent.com/Azure/aad-pod-identity/master/charts
 helm repo update
 
@@ -113,11 +113,12 @@ fi
 # install NGINX Ingress Controller
 if ! helm_release_exists nginx-ingress; then
     log "Installing NGINX Ingress Controller..."
-    helm upgrade --install nginx-ingress nginx-stable/nginx-ingress \
+    helm upgrade --install nginx-ingress ingress-nginx/ingress-nginx \
         --create-namespace -n ingress-ns \
         --set controller.replicaCount=2 \
         --set controller.nodeSelector."kubernetes\.io/os"=linux \
         --set defaultBackend.nodeSelector."kubernetes\.io/os"=linux \
+        --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-health-probe-request-path"=/healthz \
         --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-dns-label-name"=$API_DNS_LABEL
 fi
 
